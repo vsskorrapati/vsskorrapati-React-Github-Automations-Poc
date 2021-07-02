@@ -1,6 +1,6 @@
 module.exports = {
     branches: "main",
-    repositoryUrl: "https://github.com/vsskorrapati/React-Github-Automations-Poc.git",
+    repositoryUrl: "https://github.com/vsskorrapati/vsskorrapati-React-Github-Automations-Poc.git",
     plugins: [
       "@semantic-release/commit-analyzer",
       "@semantic-release/release-notes-generator",
