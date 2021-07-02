@@ -1,0 +1,74 @@
+name: Continous Integration
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main, sandbox]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache node_modules
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{runner.os}}-node-${{ hashFiles('**/package-lock.json')}}
+          restore-keys: ${{runner.os}}-node-
+      - name: Use NodeJS
+        uses: actions/setup-node@v1
+        with:
+          node-version: "14.x"
+      - run: npm ci
+      - run: npm run prettier-format
+      - run: npm test -- --coverage
+      - name: Upload Test Coverage
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage
+          path: coverage
+      - run: echo ${{github.ref}}
+      - run: echo ${{github.event_name}}
+      - name: ZIP Assets
+        if: ( github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: zip -r coverage.zip ./coverage
+      - name: Create a Release
+        if: ( github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.CUSTOM_TOKEN}}
+      # - name: Deploying code to Productions from sandbox
+      #   if: (github.ref == 'refs/heads/sandbox' && github.event_name == 'push')
+      #   uses: akhileshns/heroku-deploy@v3.5.7
+      #   with: 
+      #     heroku_api_key: $HEROKU_AUTH_TOKEN 
+      #     heroku_app_name: "github-poc-dev" 
+      #     heroku_email: $EMAIL 
+      #   env:
+      #     EMAIL: ${{ secrets.EMAIL }}
+      #     HEROKU_AUTH_TOKEN: ${{ secrets.HEROKU_AUTH_TOKEN }}
+
+      - name: Deploying code to Productions from main
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push')
+        uses: AkhileshNS/heroku-deploy@v3.12.12
+        with: 
+          heroku_api_key: $HEROKU_AUTH_TOKEN 
+          heroku_app_name: "react-app-github-autions-poc" 
+          heroku_email: $EMAIL 
+        env:
+          EMAIL: ${{ secrets.EMAIL }}
+          HEROKU_AUTH_TOKEN: ${{ secrets.HEROKU_AUTH_TOKEN }}
+
+
+      - name: Open Github Issue
+        if: failure() && github.event_name == 'push'
+        uses: alialaa/issue-action@v1.0.0
+        with:
+          token: ${{ secrets.CUSTOM_TOKEN}}
+          title: Automated Issue for Commit ${{github.sha}}
+          body: "This issue was automatically created by
+            the GitHub Action workflow **${{ github.workflow
+            }}**. \n\n The commit hash was: _${{ github.sha}}_."
+          assignees: ${{github.event.pull_request.user.login }}
